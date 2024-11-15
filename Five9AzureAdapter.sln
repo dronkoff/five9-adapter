@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35327.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Five9AzureSpeech2Text", "Five9AzureSpeech2Text\Five9AzureSpeech2Text.csproj", "{75119AAC-1225-4858-B157-76A1AFD8100F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Five9AzureAdapter.AppHost", "Five9AzureAdapter.AppHost\Five9AzureAdapter.AppHost.csproj", "{4A98F3DE-C8D3-40AE-9CB0-8FD35D01AEF6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Five9AzureAdapter.ServiceDefaults", "Five9AzureAdapter.ServiceDefaults\Five9AzureAdapter.ServiceDefaults.csproj", "{D67E9C06-CBA0-4124-B855-0E46509F1DF5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Five9SpeechClient", "Five9SpeechClient\Five9SpeechClient.csproj", "{018C128C-F635-49F5-8B25-33267B3AFDC5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{75119AAC-1225-4858-B157-76A1AFD8100F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75119AAC-1225-4858-B157-76A1AFD8100F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75119AAC-1225-4858-B157-76A1AFD8100F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75119AAC-1225-4858-B157-76A1AFD8100F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A98F3DE-C8D3-40AE-9CB0-8FD35D01AEF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A98F3DE-C8D3-40AE-9CB0-8FD35D01AEF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A98F3DE-C8D3-40AE-9CB0-8FD35D01AEF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A98F3DE-C8D3-40AE-9CB0-8FD35D01AEF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D67E9C06-CBA0-4124-B855-0E46509F1DF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D67E9C06-CBA0-4124-B855-0E46509F1DF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D67E9C06-CBA0-4124-B855-0E46509F1DF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D67E9C06-CBA0-4124-B855-0E46509F1DF5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{018C128C-F635-49F5-8B25-33267B3AFDC5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{018C128C-F635-49F5-8B25-33267B3AFDC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{018C128C-F635-49F5-8B25-33267B3AFDC5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{018C128C-F635-49F5-8B25-33267B3AFDC5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EC78556A-4A09-46D9-AA3B-4C859CCBA960}
+	EndGlobalSection
+EndGlobal
