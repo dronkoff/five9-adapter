@@ -1,3 +1,4 @@
+using Five9.Voicestream;
 using Five9AzureSpeech2TextClient;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,8 +13,14 @@ builder.Services.AddServiceDiscoveryCore();
 
 builder.Services.AddGrpcClient<Greeter.GreeterClient>(o =>
 {
-    o.Address = new Uri("https://five9azurespeech2text");//"https://localhost:7117"
+    o.Address = new Uri("https://five9azurespeech2text");
 });
+
+builder.Services.AddGrpcClient<Voice.VoiceClient>(o =>
+{
+    o.Address = new Uri("https://five9azurespeech2text");
+});
+
 
 var app = builder.Build();
 
