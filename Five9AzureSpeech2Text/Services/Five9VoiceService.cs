@@ -25,7 +25,7 @@ namespace Five9AzureSpeech2Text.Services
 
         public override async Task StreamingVoice(IAsyncStreamReader<StreamingVoiceRequest> requestStream, IServerStreamWriter<StreamingVoiceResponse> responseStream, ServerCallContext context)
         {
-            _logger.LogInformation("SRV: BEGIN StreamingVoice()");
+            _logger.LogInformation("BEGIN StreamingVoice()");
 
             var audioFormat = AudioStreamFormat.GetWaveFormat(DEFAULT_SAMPLE_RATE, DEFAULT_BITS_PER_SAMPLE, DEFAULT_CHANNELS, DEFAULT_WAVE_FORMAT); 
 
@@ -60,11 +60,8 @@ namespace Five9AzureSpeech2Text.Services
                 }
             }
 
-            // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-recognize-speech?pivots=programming-language-csharp
-            // using vd-speech from AOAI-Test for test
             var speechConfig = SpeechConfig.FromSubscription(_config["AZSpeechKey"], "eastus");
             speechConfig.SpeechRecognitionLanguage = "en-US";
-
 
             using var audioConfigStream = AudioInputStream.CreatePushStream(audioFormat);
             using var audioConfig = AudioConfig.FromStreamInput(audioConfigStream);
@@ -105,7 +102,7 @@ namespace Five9AzureSpeech2Text.Services
                         CLT_ERROR_TIMEOUT = 101;
                         CLT_ERROR_GENERIC = 102;
                     */
-                    _logger.LogInformation("SRV: StreamingStatus received {0}", requestStream.Current.StreamingStatus);
+                    _logger.LogInformation("StreamingStatus received from client: {0}", requestStream.Current.StreamingStatus);
                     if (requestStream.Current.StreamingStatus.Code == StreamingStatus.Types.StatusCode.CltDisconnect || 
                         requestStream.Current.StreamingStatus.Code == StreamingStatus.Types.StatusCode.CltCallEnded)
                     {
@@ -114,10 +111,10 @@ namespace Five9AzureSpeech2Text.Services
                 }
             }
 
-            _logger.LogInformation("SRV: Awaiting Stop Task");
+            //_logger.LogInformation("SRV: Awaiting Stop Task");
             await stopRecognition.Task;
 
-            _logger.LogInformation("SRV: Calling StopContinuousRecognitionAsync()");
+            //_logger.LogInformation("SRV: Calling StopContinuousRecognitionAsync()");
             await recognizer.StopContinuousRecognitionAsync();
 
             _logger.LogInformation("SRV: Sending SrvReqDisconnect to client");
@@ -126,12 +123,7 @@ namespace Five9AzureSpeech2Text.Services
                 Status = new StreamingStatus { Code = StreamingStatus.Types.StatusCode.SrvReqDisconnect }
             });
 
-            //var speechRecognitionResult = await recognizer.RecognizeOnceAsync();
-            //_logger.LogInformation($"RECOGNIZED: Text={speechRecognitionResult.Text}");
-
             _logger.LogInformation("SRV: END StreamingVoice()");
-
-            //await base.StreamingVoice(requestStream, responseStream, context);
         }
 
         private void SubsribeToRecognizerEvents(SpeechRecognizer recognizer, TaskCompletionSource<int> stopRecognition, TaskCompletionSource<int> startRecognition)

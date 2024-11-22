@@ -138,6 +138,7 @@ public class IndexModel : PageModel
         using (var stream = UploadedFile.OpenReadStream())
         {
             byte[] buffer = new byte[8192]; // 8KB buffer
+
             int bytesRead;
             _logger.LogInformation("CLEINT: STREAM START");
             while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
@@ -147,8 +148,6 @@ public class IndexModel : PageModel
                     AudioContent = ByteString.CopyFrom(buffer, 0, bytesRead),
                     SendTime = Timestamp.FromDateTime(DateTime.UtcNow.ToUniversalTime())
                 });
-                // await Task.Delay(50);//emulating the speed of the speech...
-                //_logger.LogInformation("Read {bytesRead} bytes", bytesRead);
             }
             _logger.LogInformation("CLEINT: STREAM END");
             await requestStream.WriteAsync(new StreamingVoiceRequest()
@@ -171,7 +170,7 @@ public class IndexModel : PageModel
             ModelState.AddModelError("UploadedFile", err);
             return Page();
         }
-        _logger.LogInformation($"CLIENT: Server response is {responseStream.Current.Status.Code}");
+        _logger.LogInformation($"Server response is {responseStream.Current.Status.Code}");
         this.Message += $"Server response is {responseStream.Current.Status.Code} \n";
         await requestStream.CompleteAsync();
 
