@@ -8,6 +8,13 @@ namespace Five9AzureSpeech2Text.Services
 {
     public class Five9VoiceService : Voice.VoiceBase
     {
+        // Default Audio format from Five9 is going to be:
+        // LINEAR16- Uncompressed 16-bit signed little-endian samples (Linear PCM). The samplerate in hertz (8000).
+        private const AudioStreamWaveFormat DEFAULT_WAVE_FORMAT = AudioStreamWaveFormat.PCM;
+        private const int DEFAULT_SAMPLE_RATE = 8000;
+        private const int DEFAULT_BITS_PER_SAMPLE = 16;
+        private const int DEFAULT_CHANNELS = 1;
+
         private readonly ILogger<Five9VoiceService> _logger;
         private readonly IConfiguration _config;
         public Five9VoiceService(IConfiguration config, ILogger<Five9VoiceService> logger)
@@ -18,7 +25,9 @@ namespace Five9AzureSpeech2Text.Services
 
         public override async Task StreamingVoice(IAsyncStreamReader<StreamingVoiceRequest> requestStream, IServerStreamWriter<StreamingVoiceResponse> responseStream, ServerCallContext context)
         {
-            _logger.LogInformation("SRV: BEGIN StreamingVoice");
+            _logger.LogInformation("SRV: BEGIN StreamingVoice()");
+
+            var audioFormat = AudioStreamFormat.GetWaveFormat(DEFAULT_SAMPLE_RATE, DEFAULT_BITS_PER_SAMPLE, DEFAULT_CHANNELS, DEFAULT_WAVE_FORMAT); 
 
             // PROTO: The first message must be 'streaming_config' containing control data specific to the call being streamed.
             // PROTO: After sending the 'streaming_config' message, the client must wait for a response from the server with status code SRV_START_STREAMING before sending audio payloads.
@@ -29,6 +38,20 @@ namespace Five9AzureSpeech2Text.Services
                     _logger.LogInformation($"StreamingConfig.VccCallId: {requestStream.Current.StreamingConfig.VccCallId}");
                     _logger.LogInformation($"StreamingConfig.Encoding: {requestStream.Current.StreamingConfig.AgentId}");
                     _logger.LogInformation($"StreamingConfig.VoiceConfig.Encoding: {requestStream.Current.StreamingConfig.VoiceConfig.Encoding}");
+                    _logger.LogInformation($"StreamingConfig.VoiceConfig.SampleRateHertz: {requestStream.Current.StreamingConfig.VoiceConfig.SampleRateHertz}");
+                    
+                    var waveFormat = requestStream.Current.StreamingConfig.VoiceConfig.Encoding switch
+                    {
+                        VoiceConfig.Types.AudioEncoding.Linear16 => AudioStreamWaveFormat.PCM,
+                        VoiceConfig.Types.AudioEncoding.Mulaw => AudioStreamWaveFormat.MULAW,
+                        _ => throw new RpcException(new Status(StatusCode.InvalidArgument, $"Unsupported audio encoding format {requestStream.Current.StreamingConfig.VoiceConfig.Encoding}."))
+                    };
+
+                    audioFormat = AudioStreamFormat.GetWaveFormat(
+                        (uint)requestStream.Current.StreamingConfig.VoiceConfig.SampleRateHertz, 
+                        DEFAULT_BITS_PER_SAMPLE, 
+                        DEFAULT_CHANNELS, 
+                        waveFormat);
                 }
                 else
                 {
@@ -39,16 +62,21 @@ namespace Five9AzureSpeech2Text.Services
 
             // https://learn.microsoft.com/en-us/azure/ai-services/speech-service/how-to-recognize-speech?pivots=programming-language-csharp
             // using vd-speech from AOAI-Test for test
-            //var speechConfig = SpeechConfig.FromEndpoint(new Uri(_config["AZSpeechEndpoint"]), _config["AZSpeechKey"]);// .FromSubscription(_config["AZSpeechKey"], _config["AZSpeechRegion"]);
             var speechConfig = SpeechConfig.FromSubscription(_config["AZSpeechKey"], "eastus");
-            using var audioConfigStream = AudioInputStream.CreatePushStream();
+            speechConfig.SpeechRecognitionLanguage = "en-US";
+
+
+            using var audioConfigStream = AudioInputStream.CreatePushStream(audioFormat);
             using var audioConfig = AudioConfig.FromStreamInput(audioConfigStream);
             using var recognizer = new SpeechRecognizer(speechConfig, audioConfig);
-
+            
             var stopRecognition = new TaskCompletionSource<int>();
-            SubsribeToRecognizerEvents(recognizer, stopRecognition);
+            var startRecognition = new TaskCompletionSource<int>();
+            SubsribeToRecognizerEvents(recognizer, stopRecognition, startRecognition);
 
             await recognizer.StartContinuousRecognitionAsync();
+
+            await startRecognition.Task; // starting sending bytes only after the session is started
 
             // signal the client to start streaming
             await responseStream.WriteAsync(new StreamingVoiceResponse { 
@@ -61,7 +89,7 @@ namespace Five9AzureSpeech2Text.Services
                 if (requestStream.Current.AudioContent != null)
                 {
                     var buffer = requestStream.Current.AudioContent.ToByteArray();
-                    _logger.LogInformation("SRV: Bytes received: {0} ({1}...)", buffer.Length, Convert.ToBase64String(buffer.AsSpan(0, Math.Min(buffer.Length, 10))));
+                    //_logger.LogInformation("SRV: Bytes received: {0} ({1}...)", buffer.Length, Convert.ToBase64String(buffer.AsSpan(0, Math.Min(buffer.Length, 10))));
                     audioConfigStream.Write(buffer, buffer.Length);
                 }
 
@@ -86,9 +114,13 @@ namespace Five9AzureSpeech2Text.Services
                 }
             }
 
+            _logger.LogInformation("SRV: Awaiting Stop Task");
+            await stopRecognition.Task;
+
+            _logger.LogInformation("SRV: Calling StopContinuousRecognitionAsync()");
             await recognizer.StopContinuousRecognitionAsync();
 
-            _logger.LogInformation("SRV: END StreamingVoice");
+            _logger.LogInformation("SRV: Sending SrvReqDisconnect to client");
             // signal the client that we are done
             await responseStream.WriteAsync(new StreamingVoiceResponse { 
                 Status = new StreamingStatus { Code = StreamingStatus.Types.StatusCode.SrvReqDisconnect }
@@ -97,13 +129,35 @@ namespace Five9AzureSpeech2Text.Services
             //var speechRecognitionResult = await recognizer.RecognizeOnceAsync();
             //_logger.LogInformation($"RECOGNIZED: Text={speechRecognitionResult.Text}");
 
-            _logger.LogInformation("SRV: END StreamingVoice");
+            _logger.LogInformation("SRV: END StreamingVoice()");
 
             //await base.StreamingVoice(requestStream, responseStream, context);
         }
 
-        private void SubsribeToRecognizerEvents(SpeechRecognizer recognizer, TaskCompletionSource<int> stopRecognition)
+        private void SubsribeToRecognizerEvents(SpeechRecognizer recognizer, TaskCompletionSource<int> stopRecognition, TaskCompletionSource<int> startRecognition)
         {
+            recognizer.SessionStarted += (s, e) =>
+            {
+                _logger.LogInformation("Session started event.");
+                startRecognition.TrySetResult(0);
+            };
+
+            recognizer.SessionStopped += (s, e) =>
+            {
+                _logger.LogInformation("Session stopped event.");
+                stopRecognition.TrySetResult(0);
+            };
+
+            recognizer.SpeechStartDetected += (s, e) =>
+            {
+                _logger.LogInformation("Speech start detected event.");
+            };
+
+            recognizer.SpeechEndDetected += (s, e) =>
+            {
+                _logger.LogInformation("Speech end detected event.");
+            };
+
             recognizer.Recognizing += (s, e) =>
             {
                 _logger.LogInformation($"RECOGNIZING: Text={e.Result.Text}");
@@ -111,14 +165,15 @@ namespace Five9AzureSpeech2Text.Services
 
             recognizer.Recognized += (s, e) =>
             {
-                if (e.Result.Reason == ResultReason.RecognizedSpeech)
-                {
-                    _logger.LogInformation($"RECOGNIZED: Text={e.Result.Text}");
-                }
-                else if (e.Result.Reason == ResultReason.NoMatch)
-                {
-                    _logger.LogInformation($"NOMATCH: Speech could not be recognized.");
-                }
+                _logger.LogInformation($"RECOGNIZED: Reason={e.Result.Reason}, Text={e.Result.Text}");
+                //if (e.Result.Reason == ResultReason.RecognizedSpeech)
+                //{
+                //    _logger.LogInformation($"RECOGNIZED: Text={e.Result.Text}");
+                //}
+                //else if (e.Result.Reason == ResultReason.NoMatch)
+                //{
+                //    _logger.LogInformation($"NOMATCH: Speech could not be recognized.");
+                //}
             };
 
             recognizer.Canceled += (s, e) =>
@@ -132,12 +187,6 @@ namespace Five9AzureSpeech2Text.Services
                     _logger.LogInformation($"CANCELED: Did you set the speech resource key and region values?");
                 }
 
-                stopRecognition.TrySetResult(0);
-            };
-
-            recognizer.SessionStopped += (s, e) =>
-            {
-                _logger.LogInformation("\n    Session stopped event.");
                 stopRecognition.TrySetResult(0);
             };
         }

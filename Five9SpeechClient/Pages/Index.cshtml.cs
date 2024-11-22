@@ -1,5 +1,6 @@
 using Five9.Voicestream;
 using Five9AzureSpeech2TextClient;
+using Five9SpeechClient.Helpers;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Net.Client;
@@ -36,11 +37,19 @@ public class IndexModel : PageModel
         this.Message = reply.Message;
     }
 
+    /// <summary></summary>
+    /// <seealso cref="https://documentation.five9.com/en-us/assets/documentation/voicestream/voicestream-dev-guide.pdf"/>
     public async Task<IActionResult> OnPostAsync()
     {
         if (UploadedFile == null || UploadedFile.Length == 0)
         {
             ModelState.AddModelError("UploadedFile", "File is required.");
+            return Page();
+        }
+
+        if (UploadedFile == null || UploadedFile.Length < 44)
+        {
+            ModelState.AddModelError("UploadedFile", "File too small for a wav file.");
             return Page();
         }
 
@@ -52,22 +61,51 @@ public class IndexModel : PageModel
 
         _logger.LogInformation("Uploading file {FileName} ({Length} bytes)", UploadedFile.FileName, UploadedFile.Length);
 
-        // https://documentation.five9.com/en-us/assets/documentation/voicestream/voicestream-dev-guide.pdf
+        byte[] wavHeaderBytes = new byte[44];
+        using (var stream = UploadedFile.OpenReadStream())
+        {
+            var bytesRead = await stream.ReadAsync(wavHeaderBytes, 0, wavHeaderBytes.Length);
+            if(bytesRead < wavHeaderBytes.Length)
+            {
+                ModelState.AddModelError("UploadedFile", "Failed to read wav file header.");
+                return Page();
+            }
+        }
+        var wavHeader = new WavHeaderReader(wavHeaderBytes);
+
+        if(wavHeader.GetChannels() != 1)
+        {
+            ModelState.AddModelError("UploadedFile", "The audio file must be mono.");
+            return Page();
+        }
+
+        if(wavHeader.GetBitsPerSample() != 16)
+        {
+            ModelState.AddModelError("UploadedFile", "The audio file must be 16-bit.");
+            return Page();
+        }
 
         using var duplexCall = _five9VoiceClient.StreamingVoice();
         var (requestStream, responseStream) = (duplexCall.RequestStream, duplexCall.ResponseStream);
 
         // PROTO: Multiple 'StreamingVoiceRequest' messages are sent repeatedly as defined below.
         // PROTO: The first message must be 'streaming_config' containing control data specific to the call being streamed.
+        var voiceConfig = new VoiceConfig()
+        {
+            Encoding = wavHeader.GetAudioFormat() switch
+            {
+                1 => VoiceConfig.Types.AudioEncoding.Linear16,
+                7 => VoiceConfig.Types.AudioEncoding.Mulaw,
+                _ => throw new ArgumentException($"Audio format from file header {wavHeader.GetAudioFormat()} is not supported. Should 1 for PCM and 7 fro Mulaw.")
+            },
+            SampleRateHertz = wavHeader.GetSampleRate()
+        };
+
         await requestStream.WriteAsync(new StreamingVoiceRequest()
         {
             StreamingConfig = new StreamingConfig()
             {
-                VoiceConfig = new VoiceConfig()
-                {
-                    Encoding = VoiceConfig.Types.AudioEncoding.Linear16,
-                    SampleRateHertz = 8000
-                },
+                VoiceConfig = voiceConfig,
                 VccCallId = "123",
                 DomainId = "ABC",
                 CampaignId = "XYZ",
@@ -109,6 +147,7 @@ public class IndexModel : PageModel
                     AudioContent = ByteString.CopyFrom(buffer, 0, bytesRead),
                     SendTime = Timestamp.FromDateTime(DateTime.UtcNow.ToUniversalTime())
                 });
+                // await Task.Delay(50);//emulating the speed of the speech...
                 //_logger.LogInformation("Read {bytesRead} bytes", bytesRead);
             }
             _logger.LogInformation("CLEINT: STREAM END");
