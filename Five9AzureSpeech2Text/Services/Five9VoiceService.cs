@@ -1,8 +1,11 @@
 ﻿using Five9.Voicestream;
+using Five9AzureSpeech2Text.Hubs;
 using Grpc.Core;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
 using Microsoft.Extensions.Logging;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Five9AzureSpeech2Text.Services
 {
@@ -17,10 +20,12 @@ namespace Five9AzureSpeech2Text.Services
 
         private readonly ILogger<Five9VoiceService> _logger;
         private readonly IConfiguration _config;
-        public Five9VoiceService(IConfiguration config, ILogger<Five9VoiceService> logger)
+        private readonly IHubContext<TranscriptionHub> _transcriptionHubContext;
+        public Five9VoiceService(IConfiguration config, ILogger<Five9VoiceService> logger, IHubContext<TranscriptionHub> transcriptionHubContext)
         {
             _logger = logger;
             _config = config;
+            _transcriptionHubContext = transcriptionHubContext;
         }
 
         public override async Task StreamingVoice(IAsyncStreamReader<StreamingVoiceRequest> requestStream, IServerStreamWriter<StreamingVoiceResponse> responseStream, ServerCallContext context)
@@ -77,6 +82,10 @@ namespace Five9AzureSpeech2Text.Services
 
             // signal the client to start streaming
             await responseStream.WriteAsync(new StreamingVoiceResponse { 
+                Status = new StreamingStatus { Code = StreamingStatus.Types.StatusCode.SrvReqStartStreaming }
+            });
+
+            await responseStream.WriteAsync(new StreamingVoiceResponse {
                 Status = new StreamingStatus { Code = StreamingStatus.Types.StatusCode.SrvReqStartStreaming }
             });
 
@@ -150,14 +159,16 @@ namespace Five9AzureSpeech2Text.Services
                 _logger.LogInformation("Speech end detected event.");
             };
 
-            recognizer.Recognizing += (s, e) =>
+            recognizer.Recognizing += async (s, e) =>
             {
                 _logger.LogInformation($"RECOGNIZING: Text={e.Result.Text}");
+                await _transcriptionHubContext.Clients.All.SendAsync("TranscriptionEvent", "Recognizing", e.Result.Text);
             };
 
-            recognizer.Recognized += (s, e) =>
+            recognizer.Recognized += async (s, e) =>
             {
                 _logger.LogInformation($"RECOGNIZED: Reason={e.Result.Reason}, Text={e.Result.Text}");
+                await _transcriptionHubContext.Clients.All.SendAsync("TranscriptionEvent", "Recognized", e.Result.Text);
                 //if (e.Result.Reason == ResultReason.RecognizedSpeech)
                 //{
                 //    _logger.LogInformation($"RECOGNIZED: Text={e.Result.Text}");
