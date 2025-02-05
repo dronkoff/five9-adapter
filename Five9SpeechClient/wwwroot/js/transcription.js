@@ -2,23 +2,21 @@
 
 var connection = new signalR.HubConnectionBuilder().withUrl("https://localhost:7117/transcriptionhub").build();
 
-connection.on("TranscriptionEvent", function (eventName, text) {
+connection.on("Recognizing", function (text) {
+    var div = document.getElementById("recognizingText");
+    div.textContent = `${text}`;
+});
+
+connection.on("Recognized", function (text) {
+    var div = document.getElementById("recognizingText");
+    div.textContent = '';
     var li = document.createElement("li");
-    document.getElementById("messagesList").appendChild(li);
+    li.classList.add("list-group-item");
     // Pay attention to possible script injection concerns.
-    li.innerHTML = eventName === 'Recognized' ? `<b>${eventName}</b>: ${text}` : `${eventName}: ${text}`;
-    
+    li.textContent = `${text}`;
+    document.getElementById("recognizedText").appendChild(li);
 });
 
 connection.start().catch(function (err) {
     return console.error(err.toString());
 });
-
-//document.getElementById("sendButton").addEventListener("click", function (event) {
-//    var user = document.getElementById("userInput").value;
-//    var message = document.getElementById("messageInput").value;
-//    connection.invoke("SendMessage", user, message).catch(function (err) {
-//        return console.error(err.toString());
-//    });
-//    event.preventDefault();
-//});

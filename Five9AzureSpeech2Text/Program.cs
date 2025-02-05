@@ -29,6 +29,7 @@ builder.Services.AddCors(options =>
                       {
                           //policy.WithOrigins("http://example.com");
                           policy.WithOrigins("https://localhost:7042");
+                          //policy.WithOrigins("https://Five9SpeechClient");
                           //policy.WithMethods("GET", "POST");
                           policy.AllowAnyMethod(); // should allow specific methods in reality
                           policy.AllowAnyHeader();

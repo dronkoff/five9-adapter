@@ -18,6 +18,8 @@ namespace Five9AzureSpeech2Text.Services
         private const int DEFAULT_BITS_PER_SAMPLE = 16;
         private const int DEFAULT_CHANNELS = 1;
 
+        private string _vccCallId;
+
         private readonly ILogger<Five9VoiceService> _logger;
         private readonly IConfiguration _config;
         private readonly IHubContext<TranscriptionHub> _transcriptionHubContext;
@@ -40,7 +42,8 @@ namespace Five9AzureSpeech2Text.Services
             {
                 if (requestStream.Current.StreamingConfig != null)
                 {
-                    _logger.LogInformation($"StreamingConfig.VccCallId: {requestStream.Current.StreamingConfig.VccCallId}");
+                    _vccCallId = requestStream.Current.StreamingConfig.VccCallId;
+                    _logger.LogInformation($"StreamingConfig.VccCallId: {_vccCallId}");
                     _logger.LogInformation($"StreamingConfig.Encoding: {requestStream.Current.StreamingConfig.AgentId}");
                     _logger.LogInformation($"StreamingConfig.VoiceConfig.Encoding: {requestStream.Current.StreamingConfig.VoiceConfig.Encoding}");
                     _logger.LogInformation($"StreamingConfig.VoiceConfig.SampleRateHertz: {requestStream.Current.StreamingConfig.VoiceConfig.SampleRateHertz}");
@@ -162,13 +165,14 @@ namespace Five9AzureSpeech2Text.Services
             recognizer.Recognizing += async (s, e) =>
             {
                 _logger.LogInformation($"RECOGNIZING: Text={e.Result.Text}");
-                await _transcriptionHubContext.Clients.All.SendAsync("TranscriptionEvent", "Recognizing", e.Result.Text);
+                //_transcriptionHubContext.Clients;
+                await _transcriptionHubContext.Clients.All.SendAsync("Recognizing", e.Result.Text);
             };
 
             recognizer.Recognized += async (s, e) =>
             {
                 _logger.LogInformation($"RECOGNIZED: Reason={e.Result.Reason}, Text={e.Result.Text}");
-                await _transcriptionHubContext.Clients.All.SendAsync("TranscriptionEvent", "Recognized", e.Result.Text);
+                await _transcriptionHubContext.Clients.All.SendAsync("Recognized", e.Result.Text);
                 //if (e.Result.Reason == ResultReason.RecognizedSpeech)
                 //{
                 //    _logger.LogInformation($"RECOGNIZED: Text={e.Result.Text}");
