@@ -1,6 +1,10 @@
 ﻿"use strict";
 
-var connection = new signalR.HubConnectionBuilder().withUrl("https://localhost:7117/transcriptionhub").build();
+var connection = new signalR.HubConnectionBuilder()
+    .withUrl("https://localhost:7117/transcriptionhub")
+    .configureLogging(signalR.LogLevel.Information)
+    .withAutomaticReconnect()
+    .build();
 
 connection.on("Recognizing", function (text) {
     var div = document.getElementById("recognizingText");
@@ -17,6 +21,12 @@ connection.on("Recognized", function (text) {
     document.getElementById("recognizedText").appendChild(li);
 });
 
-connection.start().catch(function (err) {
+connection.start().then(
+    function () {
+        var callId = document.getElementById("VssCallId").value;
+        console.log(`registering for ${callId} transcription`);
+        connection.invoke("RegisterForTranscript", callId);
+    }
+).catch(function (err) {
     return console.error(err.toString());
 });

@@ -18,12 +18,12 @@ namespace Five9AzureSpeech2Text.Services
         private const int DEFAULT_BITS_PER_SAMPLE = 16;
         private const int DEFAULT_CHANNELS = 1;
 
-        private string _vccCallId;
+        
 
         private readonly ILogger<Five9VoiceService> _logger;
         private readonly IConfiguration _config;
-        private readonly IHubContext<TranscriptionHub> _transcriptionHubContext;
-        public Five9VoiceService(IConfiguration config, ILogger<Five9VoiceService> logger, IHubContext<TranscriptionHub> transcriptionHubContext)
+        private readonly IHubContext<TranscriptionHub, ITranscriptionHub> _transcriptionHubContext;
+        public Five9VoiceService(IConfiguration config, ILogger<Five9VoiceService> logger, IHubContext<TranscriptionHub, ITranscriptionHub> transcriptionHubContext)
         {
             _logger = logger;
             _config = config;
@@ -35,15 +35,15 @@ namespace Five9AzureSpeech2Text.Services
             _logger.LogInformation("BEGIN StreamingVoice()");
 
             var audioFormat = AudioStreamFormat.GetWaveFormat(DEFAULT_SAMPLE_RATE, DEFAULT_BITS_PER_SAMPLE, DEFAULT_CHANNELS, DEFAULT_WAVE_FORMAT); 
-
+            string vccCallId = string.Empty;
             // PROTO: The first message must be 'streaming_config' containing control data specific to the call being streamed.
             // PROTO: After sending the 'streaming_config' message, the client must wait for a response from the server with status code SRV_START_STREAMING before sending audio payloads.
             if (await requestStream.MoveNext(context.CancellationToken))
             {
                 if (requestStream.Current.StreamingConfig != null)
                 {
-                    _vccCallId = requestStream.Current.StreamingConfig.VccCallId;
-                    _logger.LogInformation($"StreamingConfig.VccCallId: {_vccCallId}");
+                    vccCallId = requestStream.Current.StreamingConfig.VccCallId;
+                    _logger.LogInformation($"StreamingConfig.VccCallId: {vccCallId}");
                     _logger.LogInformation($"StreamingConfig.Encoding: {requestStream.Current.StreamingConfig.AgentId}");
                     _logger.LogInformation($"StreamingConfig.VoiceConfig.Encoding: {requestStream.Current.StreamingConfig.VoiceConfig.Encoding}");
                     _logger.LogInformation($"StreamingConfig.VoiceConfig.SampleRateHertz: {requestStream.Current.StreamingConfig.VoiceConfig.SampleRateHertz}");
@@ -77,7 +77,7 @@ namespace Five9AzureSpeech2Text.Services
             
             var stopRecognition = new TaskCompletionSource<int>();
             var startRecognition = new TaskCompletionSource<int>();
-            SubsribeToRecognizerEvents(recognizer, stopRecognition, startRecognition);
+            SubsribeToRecognizerEvents(recognizer, stopRecognition, startRecognition, vccCallId);
 
             await recognizer.StartContinuousRecognitionAsync();
 
@@ -129,16 +129,20 @@ namespace Five9AzureSpeech2Text.Services
             //_logger.LogInformation("SRV: Calling StopContinuousRecognitionAsync()");
             await recognizer.StopContinuousRecognitionAsync();
 
-            _logger.LogInformation("SRV: Sending SrvReqDisconnect to client");
-            // signal the client that we are done
-            await responseStream.WriteAsync(new StreamingVoiceResponse { 
-                Status = new StreamingStatus { Code = StreamingStatus.Types.StatusCode.SrvReqDisconnect }
-            });
+            //_logger.LogInformation("SRV: Sending SrvReqDisconnect to client");
+            //// signal the client that we are done
+            //await responseStream.WriteAsync(new StreamingVoiceResponse { 
+            //    Status = new StreamingStatus { Code = StreamingStatus.Types.StatusCode.SrvReqDisconnect }
+            //});
 
             _logger.LogInformation("SRV: END StreamingVoice()");
         }
 
-        private void SubsribeToRecognizerEvents(SpeechRecognizer recognizer, TaskCompletionSource<int> stopRecognition, TaskCompletionSource<int> startRecognition)
+        private void SubsribeToRecognizerEvents(
+            SpeechRecognizer recognizer, 
+            TaskCompletionSource<int> stopRecognition, 
+            TaskCompletionSource<int> startRecognition,
+            string vccCallId)
         {
             recognizer.SessionStarted += (s, e) =>
             {
@@ -164,23 +168,14 @@ namespace Five9AzureSpeech2Text.Services
 
             recognizer.Recognizing += async (s, e) =>
             {
-                _logger.LogInformation($"RECOGNIZING: Text={e.Result.Text}");
-                //_transcriptionHubContext.Clients;
-                await _transcriptionHubContext.Clients.All.SendAsync("Recognizing", e.Result.Text);
+                _logger.LogInformation($"({vccCallId}) Text={e.Result.Text}");
+                await _transcriptionHubContext.Clients.Group(vccCallId).Recognizing(e.Result.Text);
             };
 
             recognizer.Recognized += async (s, e) =>
             {
-                _logger.LogInformation($"RECOGNIZED: Reason={e.Result.Reason}, Text={e.Result.Text}");
-                await _transcriptionHubContext.Clients.All.SendAsync("Recognized", e.Result.Text);
-                //if (e.Result.Reason == ResultReason.RecognizedSpeech)
-                //{
-                //    _logger.LogInformation($"RECOGNIZED: Text={e.Result.Text}");
-                //}
-                //else if (e.Result.Reason == ResultReason.NoMatch)
-                //{
-                //    _logger.LogInformation($"NOMATCH: Speech could not be recognized.");
-                //}
+                _logger.LogInformation($"({vccCallId}) RECOGNIZED: Reason={e.Result.Reason}, Text={e.Result.Text}");
+                await _transcriptionHubContext.Clients.Group(vccCallId).Recognized(e.Result.Text);
             };
 
             recognizer.Canceled += (s, e) =>

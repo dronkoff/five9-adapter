@@ -2,6 +2,7 @@
 @model IndexModel
 @{
     ViewData["Title"] = "Home page";
+    
 }
 
 <div class="text-center">
@@ -18,10 +19,13 @@
     }
 
     <p>Speech to Text</p>
-    <form method="post" enctype="multipart/form-data">
-        <input type="file" name="UploadedFile" />
-        <button type="submit">Upload</button>
-    </form>
+    <div class="container">
+        <form method="post" enctype="multipart/form-data">
+            CallID: <input asp-for="@Model.VssCallId" type="text" readonly />
+            <input type="file" id="UploadedFile" name="UploadedFile" />
+            <button type="submit">Upload</button>
+        </form>
+    </div>
 </div>
 <div class="container">
     <div class="row p-1">

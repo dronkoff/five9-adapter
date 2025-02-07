@@ -15,8 +15,11 @@ public class IndexModel : PageModel
 {
     private readonly ILogger<IndexModel> _logger;
     public string Message { get; set; }
-    [BindProperty]
+
+    [BindProperty]   
     public IFormFile UploadedFile { get; set; }
+    [BindProperty]
+    public string VssCallId { get; set; }
     
     private readonly Greeter.GreeterClient _greeterClient;
     private readonly Voice.VoiceClient _five9VoiceClient;
@@ -35,6 +38,8 @@ public class IndexModel : PageModel
             Name = "gRPC web client"
         });
         this.Message = reply.Message;
+        var rnd = new Random();
+        this.VssCallId = rnd.Next(9999, 999999).ToString();
     }
 
     /// <summary></summary>
@@ -106,7 +111,7 @@ public class IndexModel : PageModel
             StreamingConfig = new StreamingConfig()
             {
                 VoiceConfig = voiceConfig,
-                VccCallId = "123",
+                VccCallId = VssCallId,
                 DomainId = "ABC",
                 CampaignId = "XYZ",
                 AgentId = "456",
