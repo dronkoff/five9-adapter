@@ -1,7 +1,7 @@
 ﻿"use strict";
 
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("https://localhost:7117/transcriptionhub")
+    .withUrl(`${ADAPTER_BASE_URL}/transcriptionhub`)
     .configureLogging(signalR.LogLevel.Information)
     .withAutomaticReconnect()
     .build();

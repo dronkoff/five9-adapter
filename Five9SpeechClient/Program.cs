@@ -32,6 +32,7 @@ builder.Services.AddGrpcClient<Voice.VoiceClient>(o =>
     o.Address = new Uri("https://five9azurespeech2text");
 });
 
+builder.Services.AddHttpClient("five9adapter", client => client.BaseAddress = new("https://five9azurespeech2text"));
 
 var app = builder.Build();
 
