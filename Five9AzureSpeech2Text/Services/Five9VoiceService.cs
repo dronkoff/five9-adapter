@@ -1,9 +1,11 @@
 ﻿using Five9.Voicestream;
 using Five9AzureSpeech2Text.Hubs;
 using Grpc.Core;
+using System.Linq;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
+using Microsoft.CognitiveServices.Speech.Transcription;
 using Microsoft.Extensions.Logging;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -70,16 +72,17 @@ namespace Five9AzureSpeech2Text.Services
 
             var speechConfig = SpeechConfig.FromSubscription(_config["AZSpeechKey"], "eastus");
             speechConfig.SpeechRecognitionLanguage = "en-US";
+            speechConfig.SetProfanity(ProfanityOption.Raw); // used to search for swear words in the text afterwards
 
             using var audioConfigStream = AudioInputStream.CreatePushStream(audioFormat);
             using var audioConfig = AudioConfig.FromStreamInput(audioConfigStream);
-            using var recognizer = new SpeechRecognizer(speechConfig, audioConfig);
+            using var transcriber = new ConversationTranscriber(speechConfig, audioConfig);
             
             var stopRecognition = new TaskCompletionSource<int>();
             var startRecognition = new TaskCompletionSource<int>();
-            SubsribeToRecognizerEvents(recognizer, stopRecognition, startRecognition, vccCallId);
+            SubsribeToRecognizerEvents(transcriber, stopRecognition, startRecognition, vccCallId);
 
-            await recognizer.StartContinuousRecognitionAsync();
+            await transcriber.StartTranscribingAsync();
 
             await startRecognition.Task; // starting sending bytes only after the session is started
 
@@ -127,7 +130,7 @@ namespace Five9AzureSpeech2Text.Services
             await stopRecognition.Task;
 
             //_logger.LogInformation("SRV: Calling StopContinuousRecognitionAsync()");
-            await recognizer.StopContinuousRecognitionAsync();
+            await transcriber.StopTranscribingAsync();
 
             //_logger.LogInformation("SRV: Sending SrvReqDisconnect to client");
             //// signal the client that we are done
@@ -139,46 +142,47 @@ namespace Five9AzureSpeech2Text.Services
         }
 
         private void SubsribeToRecognizerEvents(
-            SpeechRecognizer recognizer, 
+            ConversationTranscriber transcriber, 
             TaskCompletionSource<int> stopRecognition, 
             TaskCompletionSource<int> startRecognition,
             string vccCallId)
         {
-            recognizer.SessionStarted += (s, e) =>
+            transcriber.SessionStarted += (s, e) =>
             {
                 _logger.LogInformation("Session started event.");
                 startRecognition.TrySetResult(0);
             };
 
-            recognizer.SessionStopped += (s, e) =>
+            transcriber.SessionStopped += (s, e) =>
             {
                 _logger.LogInformation("Session stopped event.");
                 stopRecognition.TrySetResult(0);
             };
 
-            recognizer.SpeechStartDetected += (s, e) =>
+            transcriber.SpeechStartDetected += (s, e) =>
             {
                 _logger.LogInformation("Speech start detected event.");
             };
 
-            recognizer.SpeechEndDetected += (s, e) =>
+            transcriber.SpeechEndDetected += (s, e) =>
             {
                 _logger.LogInformation("Speech end detected event.");
             };
 
-            recognizer.Recognizing += async (s, e) =>
+            transcriber.Transcribing += async (s, e) =>
             {
                 _logger.LogInformation($"({vccCallId}) Text={e.Result.Text}");
                 await _transcriptionHubContext.Clients.Group(vccCallId).Recognizing(e.Result.Text);
             };
 
-            recognizer.Recognized += async (s, e) =>
+            transcriber.Transcribed += async (s, e) =>
             {
-                _logger.LogInformation($"({vccCallId}) RECOGNIZED: Reason={e.Result.Reason}, Text={e.Result.Text}");
-                await _transcriptionHubContext.Clients.Group(vccCallId).Recognized(e.Result.Text);
+                _logger.LogInformation($"({vccCallId}) RECOGNIZED [Reason: {e.Result.Reason}, Duration: {e.Result.Duration}, OffsetInTicks: {e.Result.OffsetInTicks}]: \n {e.Result.SpeakerId}: {e.Result.Text}");
+                
+                await _transcriptionHubContext.Clients.Group(vccCallId).Recognized(e.Result.Text, e.Result.OffsetInTicks, e.Result.SpeakerId);
             };
 
-            recognizer.Canceled += (s, e) =>
+            transcriber.Canceled += (s, e) =>
             {
                 _logger.LogInformation($"CANCELED: Reason={e.Reason}");
 

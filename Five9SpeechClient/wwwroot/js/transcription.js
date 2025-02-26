@@ -1,18 +1,15 @@
 ﻿"use strict";
 
-var connection = new signalR.HubConnectionBuilder()
+const connection = new signalR.HubConnectionBuilder()
     .withUrl("https://localhost:7117/transcriptionhub")
     .configureLogging(signalR.LogLevel.Information)
     .withAutomaticReconnect()
     .build();
 
 connection.on("Recognizing", function (text) {
-    //var div = document.getElementById("recognizingText");
-    //div.textContent = `${text}`;
-
-    var textContainer = document.getElementById("recognizedText");
+    const textContainer = document.getElementById("recognizedText");
     if (textContainer.children.length === 0) {
-        console.log("creating first P");
+        //console.log("creating first P");
         var p = document.createElement("p");
         p.classList.add("fst-italic");
         p.textContent = text;
@@ -20,14 +17,14 @@ connection.on("Recognizing", function (text) {
         p.scrollIntoView();
         return;
     }
-    var lastP = textContainer.children[textContainer.children.length-1];
+    const lastP = textContainer.children[textContainer.children.length - 1];
     if (lastP.classList.contains("fst-italic")) {
-        console.log("updating existing P");
+        //console.log("updating existing P");
         lastP.textContent = text;
         lastP.scrollIntoView();
         return;
     } else {
-        console.log("creating another P");
+        //console.log("creating another P");
         var p = document.createElement("p");
         p.classList.add("fst-italic");
         p.textContent = text;
@@ -37,19 +34,25 @@ connection.on("Recognizing", function (text) {
     }
 });
 
-connection.on("Recognized", function (text) {
-//    var div = document.getElementById("recognizingText");
-//    div.textContent = '';
-//    var li = document.createElement("li");
-//    li.classList.add("list-group-item");
-//    li.textContent = `${text}`;
-//    document.getElementById("recognizedText").appendChild(li);
+connection.on("Recognized", function (text, offsetInTicks, speakerId) {
+    //console.log(`Recognized: ${text}`);
+    const textContainer = document.getElementById("recognizedText");
+    
+    for (let childP of textContainer.children) {
+        if (childP.classList.contains("fst-italic")) childP.remove();
+    }
 
-    var textContainer = document.getElementById("recognizedText");
-    var lastP = textContainer.children[textContainer.children.length - 1];
-    if (!lastP) console.warn("there should be a paragraph here");
-    lastP.classList.remove("fst-italic")
-    lastP.textContent = text;
+    const speaker = speakerId === 'Guest-1' ? 'Agent' : (speakerId === 'Guest-2' ? 'Caller' : speakerId.replace("Guest", "Caller"));
+    // 1 tick = 100 nanoseconds
+    const offset = offsetInTicks / 10000000;
+    const mins = Math.floor(offset / 60);
+    const secs = Math.floor(offset % 60);
+
+    const p = document.createElement("p");
+    p.textContent = `[${mins < 10 ? '0' + mins : mins}:${secs < 10 ? '0' + secs : secs}, ${speaker}]: ${text}`;
+    textContainer.appendChild(p);
+    p.scrollIntoView();
+    return;
 });
 
 connection.start().then(

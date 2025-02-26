@@ -14,9 +14,9 @@ namespace Five9AzureSpeech2Text.Hubs
             await Clients.Group(vccCallId).Recognizing(text);
         }
 
-        public async Task Recognized(string vccCallId, string text)
+        public async Task Recognized(string vccCallId, string text, long offsetInTicks, string speakerId)
         {
-            await Clients.Group(vccCallId).Recognized(text);
+            await Clients.Group(vccCallId).Recognized(text, offsetInTicks, speakerId);
         }
     }
 }
