@@ -22,15 +22,19 @@ builder.Services.AddGrpc();
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
+var clientUrl = builder.Configuration["services:five9speechclient:https:0"]; // .NET Aspire naming convention
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: "TranscriptionHubCorsPolicy",
                       policy =>
                       {
                           //policy.WithOrigins("http://example.com");
-                          policy.WithOrigins("https://localhost:7042");
+                          //policy.WithOrigins("https://localhost:7042", 
+                          //    "https://five9speechclient.kindsky-7be8e8cb.canadacentral.azurecontainerapps.io/");
                           //policy.WithOrigins("https://Five9SpeechClient");
                           //policy.WithMethods("GET", "POST");
+                          policy.WithOrigins(clientUrl);
                           policy.AllowAnyMethod(); // should allow specific methods in reality
                           policy.AllowAnyHeader();
                           policy.AllowCredentials();
