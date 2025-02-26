@@ -1,48 +1,56 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
-    
+    ViewData["Title"] = "Speech to Text";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-    <pre>@Model.Message</pre>
 
-    @if (!Model.ModelState.IsValid)
-    {
-        foreach(var err in Model.ModelState.Values.SelectMany(v => v.Errors))
-        {
-            <div class="alert alert-danger">@err.ErrorMessage</div>
-        }
-    }
-
-    <p>Speech to Text</p>
-    <div class="container">
-        <form method="post" enctype="multipart/form-data">
-            CallID: <input asp-for="@Model.VssCallId" type="text" readonly />
-            <input type="file" id="UploadedFile" name="UploadedFile" />
-            <button type="submit">Upload</button>
-        </form>
-    </div>
-</div>
 <div class="container">
-    <div class="row p-1">
-        <div class="col">
-            <hr />
+    <div class="row">
+        <div class="col-sm" />
+        <div class="col-8">
+            <h1 class="display-4">Speech to Text</h1>
+            <pre>@Model.Message</pre>
+            @if (!Model.ModelState.IsValid)
+            {
+                foreach (var err in Model.ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    <div class="alert alert-danger">@err.ErrorMessage</div>
+                }
+            }
         </div>
+        <div class="col-sm" />
     </div>
-    <div class="row p-1">
-        <div class="col">
-            <div class="alert alert-info" role="alert" id="recognizingText" />
+    <div class="row">
+        <div class="col-sm" />
+        <div class="col-8">
+            <form method="post" enctype="multipart/form-data">
+                <div class="form-group row">
+                    <label asp-for="@Model.VssCallId" class="col-sm-2 col-form-label">CallID</label>
+                    <div class="col-sm-10">
+                        <input asp-for="@Model.VssCallId" type="text" class="form-control" readonly />
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label asp-for="@Model.UploadedFile" class="col-sm-2 col-form-label">Audio&nbsp;file</label>
+                    <div class="col-sm-10">
+                        <input asp-for="@Model.UploadedFile" type="file" class="custom-file-input" />
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-sm-2 col-form-label"></label>
+                    <div class="col-sm-10">
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-sm-2 col-form-label"></label>
+                    <div class="col-sm-10">
+                        <a class="btn btn-secondary" asp-page="/Transcription" asp-route-callid="@Model.VssCallId" role="button" target="_blank">Call @Model.VssCallId transcription</a>
+                    </div>
+                </div>
+            </form>
         </div>
-    </div>
-    <div class="row p-1">
-        <div class="col">
-            <ul class="list-group" id="recognizedText"></ul>
-        </div>
+        <div class="col-sm" />
     </div>
 </div>
-<script src="~/js/signalr/dist/browser/signalr.js"></script>
-<script src="~/js/transcription.js"></script>

@@ -1,0 +1,46 @@
+﻿@page
+@model Five9SpeechClient.Pages.TranscriptionModel
+@{
+    Layout = "_LayoutDialog";
+    ViewData["Title"] = $"Call {Model.CallId} transcription";
+}
+<style>
+    .scrollable-div {
+        padding: 10px;
+        height: 300px; /* Height of the scrollable area */
+        overflow-y: scroll; /* Adds vertical scrollbar */
+    }
+</style>
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm" />
+        <div class="col">
+            <h3 class="h3">Call @Model.CallId transcription</h3>
+        </div>
+        <div class="col-sm" />
+    </div>
+@*     <div class="row">
+        <div class="col-sm" />
+        <div class="col">
+            <div class="alert alert-info" role="alert" id="recognizingText" />
+        </div>
+        <div class="col-sm" />
+    </div>
+ *@    <div class="row">
+        <div class="col-sm" />
+        <div class="col">
+            @* <ul class="list-group" id="recognizedText"></ul> *@
+            <div class="scrollable-div border border-2 border-primary" id="recognizedText">
+
+            </div>
+        </div>
+        <div class="col-sm" />
+    </div>
+
+</div>
+<script>
+    const CALL_ID = @Model.CallId;
+</script>
+<script src="~/js/signalr/dist/browser/signalr.js"></script>
+<script src="~/js/transcription.js"></script>
