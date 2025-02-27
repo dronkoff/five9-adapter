@@ -28,8 +28,7 @@ namespace Five9AzureSpeech2Text.Controllers
         [HttpPost]
         public IActionResult Post([FromBody] dynamic jsonData)
         {
-            string s = jsonData.description;
-            _logger.LogInformation("Post called. Probably a CTI event. {0}", s);
+            _logger.LogInformation("Post called. Probably a CTI event.");
             return Ok();
         }
 
