@@ -124,6 +124,7 @@ public class IndexModel : PageModel
         });
 
         // PROTO: After sending the 'streaming_config' message, the client must wait for a response from the server with status code SRV_START_STREAMING before sending audio payloads.
+        _logger.LogInformation($"Waiting for server command to start streaming");
         if (!await responseStream.MoveNext(CancellationToken.None))
         {
             var err = "The server did not respond after the first streaming_config message.";
@@ -131,6 +132,7 @@ public class IndexModel : PageModel
             ModelState.AddModelError("UploadedFile", err);
             return Page();
         }
+        _logger.LogInformation($"Server message: {responseStream.Current.Status.Code}");
         if (responseStream.Current.Status.Code != StreamingStatus.Types.StatusCode.SrvReqStartStreaming)
         {
             var err = "The first server response is not the SRV_START_STREAMING response.";
